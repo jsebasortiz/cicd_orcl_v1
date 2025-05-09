@@ -1,11 +1,5 @@
 name: db-actions
-on:
-  push:
-    branches:
-    - main
-  pull_request:
-    branches:
-    - main
+on: push
 jobs:
   database-via-gha-service:
     runs-on: ubuntu-latest
@@ -42,12 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Initial dir stucture
+      - name: Ensure datamodel directory exists
         run: |
-          echo "Seeing root dir"
-          ls -al
-          echo "Seeing datamodel"
-          ls -al datamodel
+          mkdir -p ./datamodel
       - name: Setup test database
         run: |
           podman run -d --name oracle \
@@ -67,18 +58,13 @@ jobs:
           echo "SELECT country_code, official_name, population \
           FROM countries WHERE name = 'Austria';" \
           | sql test/test@localhost/FREEPDB1
-      - name: Final dir stucture
-        run: |
-          echo "Seeing root dir"
-          ls -al
-          echo "Seeing datamodel"
-          ls -al datamodel
 
   database-action:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - run: mkdir ${{ github.workspace }}/database-files
+      - run: mkdir -p ./datamodel
       - uses: gvenzl/setup-oracle-free@v1
         with:
           app-user: test
