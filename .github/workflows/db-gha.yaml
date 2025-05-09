@@ -1,37 +1,29 @@
-name: db-actions
-
-on: push
-
 jobs:
-  database-via-gha-service:
+  database-manual:
     runs-on: ubuntu-latest
-    services:
-      # Etiqueta utilizada para acceder al contenedor del servicio
-      oracle:
-        # Imagen del registro de contenedores
-        image: gvenzl/oracle-free:slim
-        # Proporciona variables de entorno al contenedor
-        env:
-          ORACLE_RANDOM_PASSWORD: y
-          APP_USER: test
-          APP_USER_PASSWORD: test
-        # Reenvía el puerto de Oracle
-        ports:
-          - 1521:1521
-        # Proporciona opciones de script de verificación de estado para el inicio
-        options: >-
-          --health-cmd healthcheck.sh
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v3
 
-      # En este punto, tu aplicación se conectaría a la base de datos y la usaría
-      # Aquí mostramos la disponibilidad de la base de datos a través de la CLI de SQLCl
+      - name: Ensure datamodel directory exists
+        run:
+          mkdir -p ./datamodel
+
+      - name: Setup test database
+        run: |
+          podman run -d --name oracle \
+            -p 1521:1521 \
+            -e ORACLE_RANDOM_PASSWORD=y \
+            -e APP_USER=test \
+            -e APP_USER_PASSWORD=test \
+            -v ./datamodel:/container-entrypoint-initdb.d \
+            gvenzl/oracle-free:slim
+
+          while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") -eq 0 ]]; do
+            sleep 1;
+          done;
+
       - uses: gvenzl/setup-oracle-sqlcl@v1
 
-      # Conéctate a la base de datos y ejecuta un comando SQL
-      - name: Ejecutar SQLcl
+      - name: Run SQLcl
         run: |
-          echo "SELECT 'Hey there, hey UCEVA!';" | sql test/test@localhost/FREEPDB1
+          echo "SELECT country_code, official_name, population FROM countries WHERE name = 'Austria';" | sql test/test@localhost/FREEPDB1
