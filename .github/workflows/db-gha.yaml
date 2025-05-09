@@ -13,12 +13,12 @@ jobs:
       # Label used to access the service container
       oracle:
         # Container registry image
-        image: gvenzl/oracle-free:slim
+        image: oracle23ai 
         # Provide environment variables to the container
         env:
           ORACLE_RANDOM_PASSWORD: y
-          APP_USER: test
-          APP_USER_PASSWORD: test
+          APP_USER: sys
+          APP_USER_PASSWORD: oracle
         # Forward Oracle port
         ports:
           - 1521:1521
@@ -53,8 +53,8 @@ jobs:
           podman run -d --name oracle \
                      -p 1521:1521 \
                      -e ORACLE_RANDOM_PASSWORD=y \
-                     -e APP_USER=test \
-                     -e APP_USER_PASSWORD=test \
+                     -e APP_USER=sys \
+                     -e APP_USER_PASSWORD=oracle \
                      -v ./datamodel:/container-entrypoint-initdb.d \
                      gvenzl/oracle-free:slim
           while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") == 0 ]]; do
@@ -81,8 +81,8 @@ jobs:
       - run: mkdir ${{ github.workspace }}/database-files
       - uses: gvenzl/setup-oracle-free@v1
         with:
-          app-user: test
-          app-user-password: test
+          app-user: sys
+          app-user-password: oracle
           volume: ${{ github.workspace }}/database-files
           setup-scripts: ./datamodel
       - uses: gvenzl/setup-oracle-sqlcl@v1
