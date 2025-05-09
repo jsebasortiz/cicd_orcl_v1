@@ -1,0 +1,94 @@
+name: db-actions
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+jobs:
+  database-via-gha-service:
+    runs-on: ubuntu-latest
+    services:
+      # Label used to access the service container
+      oracle:
+        # Container registry image
+        image: gvenzl/oracle-free:slim
+        # Provide environment variables to the container
+        env:
+          ORACLE_RANDOM_PASSWORD: y
+          APP_USER: test
+          APP_USER_PASSWORD: test
+        # Forward Oracle port
+        ports:
+          - 1521:1521
+        # Provide healthcheck script options for startup
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v3
+      # At this point, your app would connect to the database and use it
+      # Here we are showing the availability of the DB via the SQLcl CLI
+      - uses: gvenzl/setup-oracle-sqlcl@v1
+      # Connect to the database and run a SQL command
+      - name: Run SQLcl
+        run: |
+          echo "SELECT 'Hey there, hey UCEVA!';" | sql test/test@localhost/FREEPDB1
+
+  database-manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Initial dir stucture
+        run: |
+          echo "Seeing root dir"
+          ls -al
+          echo "Seeing datamodel"
+          ls -al datamodel
+      - name: Setup test database
+        run: |
+          podman run -d --name oracle \
+                     -p 1521:1521 \
+                     -e ORACLE_RANDOM_PASSWORD=y \
+                     -e APP_USER=test \
+                     -e APP_USER_PASSWORD=test \
+                     -v ./datamodel:/container-entrypoint-initdb.d \
+                     gvenzl/oracle-free:slim
+          while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") == 0 ]]; do
+            sleep 1;
+          done;
+      - uses: gvenzl/setup-oracle-sqlcl@v1
+      # Connect to the database and run a SQL command
+      - name: Run SQLcl
+        run: |
+          echo "SELECT country_code, official_name, population \
+          FROM countries WHERE name = 'Austria';" \
+          | sql test/test@localhost/FREEPDB1
+      - name: Final dir stucture
+        run: |
+          echo "Seeing root dir"
+          ls -al
+          echo "Seeing datamodel"
+          ls -al datamodel
+
+  database-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: mkdir ${{ github.workspace }}/database-files
+      - uses: gvenzl/setup-oracle-free@v1
+        with:
+          app-user: test
+          app-user-password: test
+          volume: ${{ github.workspace }}/database-files
+          setup-scripts: ./datamodel
+      - uses: gvenzl/setup-oracle-sqlcl@v1
+      # Connect to the database and run a SQL command
+      - name: Run SQLcl
+        run: |
+          echo "SELECT country_code, official_name, population \
+          FROM countries WHERE name = 'Austria';" \
+          | sql test/test@localhost/FREEPDB1
