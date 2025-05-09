@@ -1,48 +1,78 @@
 name: db-actions
-on: push
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  database-manual:
+  database-via-gha-service:
     runs-on: ubuntu-latest
+    services:
+      oracle:
+        image: oracle23ai  # Usando tu imagen
+        env:
+          ORACLE_RANDOM_PASSWORD: y
+          APP_USER: test
+          APP_USER_PASSWORD: test
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd "ls -la" # Un healthcheck simple, ajusta si es necesario
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v3
-      - name: Ensure datamodel directory exists
-        run: |
-          mkdir -p ./datamodel
-      - name: Setup test database
-        run: |
-          podman run -d --name oracle \
-            -p 1521:1521 \
-            -e ORACLE_RANDOM_PASSWORD=y \
-            -e APP_USER: ${{ secrets.APP_USER }}
-            -e APP_USER_PASSWORD: ${{ secrets.APP_USER_PASSWORD }}
-            -v ./datamodel:/container-entrypoint-initdb.d \
-            gvenzl/oracle-free:slim
-          while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") == 0 ]]; do
-            sleep 1;
-          done;
       - uses: gvenzl/setup-oracle-sqlcl@v1
-      - name: Run SQLcl
+      - name: Run SQLcl via service
         run: |
-          echo "SELECT country_code, official_name, population \
-          FROM countries WHERE name = 'Austria';" \
-          | sql ${{ secrets.APP_USER }}/${{ secrets.APP_USER_PASSWORD }}@localhost/FREEPDB1
+          echo "SELECT 'Hey there, hey UCEVA!';" | sql test/test@localhost/FREEPDB1
+
+  database-manual:
+    runs-on: ubuntu-latest
+    container:  # Usando 'container' en lugar de 'services' para un solo contenedor
+      image: oracle23ai  # Usando tu imagen
+      env:
+        ORACLE_RANDOM_PASSWORD: y
+        APP_USER: test
+        APP_USER_PASSWORD: test
+      ports:
+        - 1521:1521
+    steps:
+      - uses: actions/checkout@v3
+      - name: Initial dir structure
+        run: |
+          echo "Seeing root dir"
+          ls -al
+          echo "Seeing datamodel"
+          ls -al datamodel
+      - uses: gvenzl/setup-oracle-sqlcl@v1
+      - name: Run SQLcl with Podman
+        run: |
+          echo "SELECT country_code, official_name, population FROM countries WHERE name = 'Austria';" | sql test/test@localhost/FREEPDB1
+      - name: Final dir structure
+        run: |
+          echo "Seeing root dir"
+          ls -al
+          echo "Seeing datamodel"
+          ls -al datamodel
 
   database-action:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - run: mkdir ${{ github.workspace }}/database-files
-      - run: mkdir -p /datamodel
+      - run: mkdir -p ${{ github.workspace }}/datamodel
       - uses: gvenzl/setup-oracle-free@v1
         with:
-          app-user: ${{ secrets.APP_USER }}
-          app-user-password: ${{ secrets.APP_USER_PASSWORD }}
+          app-user: test
+          app-user-password: test
           volume: ${{ github.workspace }}/database-files
-          setup-scripts: /datamodel
+          setup-scripts: ${{ github.workspace }}/datamodel
       - uses: gvenzl/setup-oracle-sqlcl@v1
-      - name: Run SQLcl
+      - name: Run SQLcl with Action
         run: |
-          echo "SELECT country_code, official_name, population \
-          FROM countries WHERE name = 'Austria';" \
-          | sql ${{ secrets.APP_USER }}/${{ secrets.APP_USER_PASSWORD }}@localhost/FREEPDB1
+          echo "SELECT country_code, official_name, population FROM countries WHERE name = 'Austria';" | sql test/test@localhost/FREEPDB1
