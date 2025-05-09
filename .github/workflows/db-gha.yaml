@@ -3,25 +3,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Ensure datamodel directory exists
-        run: |
+        run:
           mkdir -p ./datamodel
+
       - name: Setup test database
         run: |
           podman run -d --name oracle \
-                     -p 1521:1521 \
-                     -e ORACLE_RANDOM_PASSWORD=y \
-                     -e APP_USER=test \
-                     -e APP_USER_PASSWORD=test \
-                     -v ./datamodel:/container-entrypoint-initdb.d \
-                     gvenzl/oracle-free:slim
-          while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") == 0 ]]; do
+            -p 1521:1521 \
+            -e ORACLE_RANDOM_PASSWORD=y \
+            -e APP_USER=test \
+            -e APP_USER_PASSWORD=test \
+            -v ./datamodel:/container-entrypoint-initdb.d \
+            gvenzl/oracle-free:slim
+
+          while [[ $(podman logs oracle 2>&1 | grep -c "DATABASE IS READY TO USE") -eq 0 ]]; do
             sleep 1;
           done;
+
       - uses: gvenzl/setup-oracle-sqlcl@v1
-      # Connect to the database and run a SQL command
+
       - name: Run SQLcl
         run: |
-          echo "SELECT country_code, official_name, population \
-          FROM countries WHERE name = 'Austria';" \
-          | sql test/test@localhost/FREEPDB1
+          echo "SELECT country_code, official_name, population FROM countries WHERE name = 'Austria';" | sql test/test@localhost/FREEPDB1
