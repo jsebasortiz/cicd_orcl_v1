@@ -1,0 +1,37 @@
+name: db-actions
+
+on: push
+
+jobs:
+  database-via-gha-service:
+    runs-on: ubuntu-latest
+    services:
+      # Etiqueta utilizada para acceder al contenedor del servicio
+      oracle:
+        # Imagen del registro de contenedores
+        image: gvenzl/oracle-free:slim
+        # Proporciona variables de entorno al contenedor
+        env:
+          ORACLE_RANDOM_PASSWORD: y
+          APP_USER: test
+          APP_USER_PASSWORD: test
+        # Reenvía el puerto de Oracle
+        ports:
+          - 1521:1521
+        # Proporciona opciones de script de verificación de estado para el inicio
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v3
+
+      # En este punto, tu aplicación se conectaría a la base de datos y la usaría
+      # Aquí mostramos la disponibilidad de la base de datos a través de la CLI de SQLCl
+      - uses: gvenzl/setup-oracle-sqlcl@v1
+
+      # Conéctate a la base de datos y ejecuta un comando SQL
+      - name: Ejecutar SQLcl
+        run: |
+          echo "SELECT 'Hey there, hey UCEVA!';" | sql test/test@localhost/FREEPDB1
